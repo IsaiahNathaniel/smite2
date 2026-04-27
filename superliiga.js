@@ -3,7 +3,7 @@ let products = []; // Start with an empty array
 // 1. Fetch the data from the external JSON file
 async function loadDatabase() {
     try {
-        const response = await fetch('data.json');
+        const response = await fetch('maindata.json');
         if (!response.ok) throw new Error("Failed to load data");
         
         products = await response.json(); // Parse JSON and save to our variable
