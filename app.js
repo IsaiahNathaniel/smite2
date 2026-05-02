@@ -38,22 +38,19 @@ async function initApp() {
 /**
  * TOKEN MANAGEMENT
  */
+let SESSION_TOKEN = null; 
+
 function getAuthToken() {
-    // Check if token is already in this session
-    let token = sessionStorage.getItem('gh_token');
-    
-    if (!token) {
-        token = prompt("Please enter your GitHub Personal Access Token to commit changes:");
-        if (token) {
-            sessionStorage.setItem('gh_token', token);
-        }
+    // Use the variable instead of sessionStorage
+    if (!SESSION_TOKEN) {
+        SESSION_TOKEN = prompt("Please enter your GitHub Personal Access Token:");
     }
-    return token;
+    return SESSION_TOKEN;
 }
 
 function clearAuthToken() {
-    sessionStorage.removeItem('gh_token');
-    alert("Token cleared from session.");
+    SESSION_TOKEN = null;
+    alert("Token cleared.");
 }
 
 /**
