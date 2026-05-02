@@ -2,98 +2,158 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smite 2 | Pro Analytics v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smite 2 Superliiga</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 20px; background: #0f0f0f; color: #e0e0e0; }
-        .container { max-width: 1350px; margin: auto; background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #333; }
-        #nav { margin-bottom: 25px; display: flex; gap: 10px; border-bottom: 1px solid #333; padding-bottom: 15px; }
-        button { padding: 10px 18px; border-radius: 6px; border: none; background: #ffd700; color: #000; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #ffea00; transform: translateY(-2px); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85em; }
-        th { background: #2a2a2a; color: #ffd700; position: sticky; top: 0; text-transform: uppercase; }
-        th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+        :root {
+            --gold: #ffd700;
+            --bg: #0f0f0f;
+            --card-bg: #1a1a1a;
+            --input-bg: #121212;
+            --border: #333;
+            --win: #4caf50;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: #e0e0e0; line-height: 1.6; }
+        .container { max-width: 1600px; margin: auto; padding: 20px; }
+        
+        /* Navigation */
+        #nav { display: none; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 25px; flex-wrap: wrap; }
+        button { padding: 10px 20px; border-radius: 6px; border: none; background: var(--gold); color: #000; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #ffea00; transform: translateY(-1px); }
+        .btn-secondary { background: #444; color: #fff; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; }
+        th { background: #2a2a2a; color: var(--gold); cursor: pointer; padding: 12px; white-space: nowrap; border-bottom: 2px solid var(--border); }
+        th:hover { background: #333; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
         tr.match-row:hover { background: #252525; cursor: pointer; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-        .player-card { background: #252525; padding: 15px; margin-top: 15px; border-radius: 8px; border-left: 4px solid #ffd700; }
-        .stat-input-group { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        input, select { background: #121212; color: #fff; border: 1px solid #444; padding: 6px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        label { font-size: 0.7em; color: #ffd700; display: block; margin-bottom: 2px; font-weight: bold; }
-        #detail-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; overflow-y: auto; }
-        .modal-content { background:#1a1a1a; max-width:1000px; margin:20px auto; padding:30px; border-radius:10px; border: 1px solid #ffd700; }
-        .Win { color: #4caf50; font-weight: bold; } 
-        .Loss { color: #f44336; font-weight: bold; }
+        
+        /* Sticky Column for Rankings */
+        .sticky-col { position: sticky; left: 0; background: #1a1a1a; z-index: 10; border-right: 2px solid var(--border); }
+
+        /* Form Layout */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; }
+        .player-card { background: #252525; padding: 15px; margin-top: 15px; border-radius: 8px; border-left: 4px solid var(--gold); }
+        .stat-input-group { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+        
+        input, select { background: var(--input-bg); color: #fff; border: 1px solid #444; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        label { font-size: 0.7em; color: var(--gold); display: block; margin-bottom: 2px; font-weight: bold; text-transform: uppercase; }
+
+        /* Modal */
+        #detail-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; overflow-y: auto; }
+        .modal-content { background:var(--card-bg); max-width:1100px; margin:40px auto; padding:30px; border-radius:12px; border: 1px solid var(--gold); }
+        
+        /* Utility */
+        .winner-tag { color: var(--win); font-weight: bold; }
+        .toggle-container { margin-bottom: 15px; background: #222; display: inline-flex; padding: 5px; border-radius: 8px; border: 1px solid var(--border); }
+        .toggle-container button { background: transparent; color: #fff; }
+        .toggle-container button.active { background: var(--gold); color: #000; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="welcome-screen" style="text-align: center; padding: 100px;">
-        <h1 style="color:#ffd700; font-size: 3em;">SMITE 2 PRO ANALYTICS</h1>
-        <button onclick="initApp()" style="padding: 15px 50px; font-size: 1.2em;">START SYSTEM</button>
+    <!-- Welcome/Init Screen -->
+    <div id="welcome-screen" style="text-align: center; padding: 100px 0;">
+        <h1 style="color:var(--gold); font-size: 3.5em; margin-bottom: 10px;">SMITE 2 SUPERLIIGA</h1>
+        <p style="color: #888; margin-bottom: 30px;">Data Tracking and Analytics</p>
+        <button onclick="initApp()" style="padding: 15px 60px; font-size: 1.2em;">LOAD DATA FROM GITHUB</button>
     </div>
 
-    <div id="nav" style="display: none;">
-        <button onclick="showScreen('main-interface')">History</button>
-        <button onclick="showScreen('player-stats-screen')" style="background:#9c27b0; color:#fff">Rankings</button>
-        <button onclick="showScreen('team-stats-screen')" style="background:#e91e63; color:#fff">Teams</button>
-        <button onclick="showScreen('add-screen')" style="background:#4caf50; color:#fff">+ Log Match</button>
+    <!-- Main Navigation -->
+    <div id="nav">
+        <button onclick="showScreen('main-interface')">Match History</button>
+        <button onclick="showScreen('player-stats-screen')" style="background:#9c27b0; color:#fff">Player Rankings</button>
+        <button onclick="showScreen('team-stats-screen')" style="background:#e91e63; color:#fff">Team Standings</button>
+        <button onclick="showScreen('add-screen')" style="background:var(--win); color:#fff">+ Log Match</button>
     </div>
 
+    <!-- Match History Screen -->
     <div id="main-interface" style="display:none;">
-        <table id="match-table">
-            <thead><tr><th>Date</th><th>Team</th><th>Opponent</th><th>Result</th></tr></thead>
-            <tbody id="database-content"></tbody>
-        </table>
-    </div>
-
-    <div id="player-stats-screen" style="display:none;">
-        <div style="overflow-x: auto;">
+        <div class="table-container">
             <table>
                 <thead>
-                    <tr>
-                        <th>Player</th><th>Games</th><th>Win%</th><th>Kills</th><th>Deaths</th><th>Assts</th><th>KDA Ratio</th><th>GPM</th><th>P. Dmg</th><th>Wards</th>
-                    </tr>
+                    <tr><th>Date</th><th>Length</th><th>Home Team</th><th>Away Team</th><th>Winner</th></tr>
                 </thead>
+                <tbody id="database-content"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Player Rankings Screen -->
+    <div id="player-stats-screen" style="display:none;">
+        <div class="toggle-container">
+            <button id="btn-pm" class="active" onclick="toggleStatMode('pm')">PER MINUTE</button>
+            <button id="btn-total" onclick="toggleStatMode('total')">TOTALS</button>
+        </div>
+        <div class="table-container">
+            <table id="ranking-table" style="min-width: 1800px;">
+                <thead><tr id="ranking-headers"></tr></thead>
                 <tbody id="player-stats-content"></tbody>
             </table>
         </div>
     </div>
 
+    <!-- Team Stats Screen -->
     <div id="team-stats-screen" style="display:none;">
-        <table>
-            <thead><tr><th>Team</th><th>W/L</th><th>Win Rate</th><th>Avg Team GPM</th></tr></thead>
-            <tbody id="team-stats-content"></tbody>
-        </table>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTeamTable('n')">Team</th>
+                        <th onclick="sortTeamTable('g')">GP</th>
+                        <th onclick="sortTeamTable('w')">Wins</th>
+                        <th onclick="sortTeamTable('l')">Losses</th>
+                        <th onclick="sortTeamTable('winRate')">Win %</th>
+                        <th onclick="sortTeamTable('avgGpm')">Avg GPM</th>
+                    </tr>
+                </thead>
+                <tbody id="team-stats-content"></tbody>
+            </table>
+        </div>
     </div>
 
+    <!-- Add Match Screen -->
     <div id="add-screen" style="display:none;">
+        <div style="background: #252525; padding: 25px; border-radius: 12px; margin-bottom: 25px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; border: 1px solid #444;">
+            <div><label>Match Date</label><input type="date" id="mDate"></div>
+            <div><label>Game Length (Mins)</label><input type="number" id="mLength" placeholder="e.g. 25"></div>
+            <div><label>Winning Team</label><select id="mWinner"></select></div>
+        </div>
+
         <div class="form-grid">
             <div>
-                <h3>Home Team</h3>
+                <h3 style="color:var(--gold)">HOME TEAM</h3>
                 <select id="tNameSelect" onchange="updatePlayerDropdowns('t')"></select>
                 <div id="teamInputs"></div>
             </div>
             <div>
-                <h3>Opponent</h3>
+                <h3 style="color:var(--gold)">OPPONENT TEAM</h3>
                 <select id="oNameSelect" onchange="updatePlayerDropdowns('o')"></select>
                 <div id="oppInputs"></div>
             </div>
         </div>
-        <div style="text-align:center; padding: 40px; border-top: 1px solid #333; margin-top: 20px;">
-            <select id="mResult" style="width:200px; padding:10px;"><option value="Win">WIN</option><option value="Loss">LOSS</option></select><br><br>
-            <button onclick="saveMatch()" style="background:#4caf50; color:#fff; width:300px; padding:15px;">SAVE MATCH</button>
+
+        <div style="text-align:center; padding: 40px;">
+            <button onclick="saveMatch()" style="background:var(--win); color:#fff; width:350px; padding:18px; font-size:1.2em;">SAVE TO GITHUB</button>
         </div>
     </div>
 </div>
 
+<!-- Details Modal -->
 <div id="detail-modal">
     <div class="modal-content">
-        <h2 id="mTitle"></h2>
+        <h2 id="mTitle" style="margin:0 0 5px 0;"></h2>
+        <div id="mMeta" style="color:var(--gold); margin-bottom:25px; border-bottom: 1px solid #444; padding-bottom:10px;"></div>
         <div id="mDetails"></div>
-        <button onclick="document.getElementById('detail-modal').style.display='none'" style="width:100%; margin-top:20px;">BACK</button>
+        <button onclick="document.getElementById('detail-modal').style.display='none'" class="btn-secondary" style="width:100%; margin-top:20px;">BACK TO DASHBOARD</button>
     </div>
 </div>
 
+<!-- Load Logic -->
 <script src="app.js"></script>
 </body>
 </html>
