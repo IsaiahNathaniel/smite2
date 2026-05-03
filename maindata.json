@@ -1,7 +1,0 @@
-[
-    { "id": 1, "name": "Mechanical Keyboard", "category": "Electronics", "price": 120 },
-    { "id": 2, "name": "Coffee Mug", "category": "Kitchen", "price": 15 },
-    { "id": 3, "name": "Ergonomic Chair", "category": "Furniture", "price": 350 },
-    { "id": 4, "name": "Wireless Mouse", "category": "Electronics", "price": 45 },
-    { "id": 5, "name": "Desk Lamp", "category": "Home Office", "price": 30 }
-]
