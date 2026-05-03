@@ -2,8 +2,8 @@
  * GITHUB CONFIGURATION
  */
 const GITHUB_CONFIG = {
-    owner: "IsaiahNathaniel", // Change this
-    repo: "smite2",       // Change this
+    owner: "IsaiahNathaniel",
+    repo: "smite2",       
     path: "data.json"
 };
 
@@ -15,9 +15,6 @@ const ROSTERS = {
     "Dennis' Team": ["Dennis", "HoboLord", "Shapow"],
 };
 
-const TEAMS = Object.keys(ROSTERS);
-
-// ALL 14 TRACKED STATS
 const STAT_FIELDS = [
     {id: "Lvl", label: "Level"}, {id: "K", label: "Kills"}, {id: "D", label: "Deaths"}, {id: "A", label: "Assists"},
     {id: "Gpm", label: "GPM"}, {id: "Pdmg", label: "Player Dmg"}, {id: "Mdmg", label: "Minion Dmg"},
@@ -28,175 +25,36 @@ const STAT_FIELDS = [
 
 let matches = [];
 let SESSION_TOKEN = null;
-let CURRENT_MODE = 'pm'; // 'pm' or 'total'
+let PLAYER_MODE = 'pm'; 
+let GOD_MODE = 'pm';    
 
 /**
- * 2. UI GENERATORS & UTILITIES
- * These must be defined before setupUI calls them.
+ * ==========================================
+ * 2. ANALYTICS ENGINE
+ * ==========================================
  */
-
-function createInputSkeletons(containerId, prefix) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = "";
-    for (let i = 1; i <= 3; i++) {
-        let statInputs = STAT_FIELDS.map(sf => `
-            <div>
-                <label>${sf.label}</label>
-                <input type="number" id="${prefix}${sf.id}${i}" value="0">
-            </div>`).join('');
-            
-        container.innerHTML += `
-            <div class="player-card">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div><label>Player</label><select id="${prefix}Name${i}"></select></div>
-                    <div><label>God</label><select id="${prefix}God${i}">${GODS.map(g => `<option value="${g}">${g}</option>`).join('')}</select></div>
-                </div>
-                <div class="stat-input-group">${statInputs}</div>
-            </div>`;
-    }
-}
-
-function updateWinnerOptions() {
-    const t1 = document.getElementById('tNameSelect').value;
-    const t2 = document.getElementById('oNameSelect').value;
-    const winnerSelect = document.getElementById('mWinner');
-    if (winnerSelect) {
-        winnerSelect.innerHTML = `<option value="${t1}">${t1}</option><option value="${t2}">${t2}</option>`;
-    }
-}
-
-function updatePlayerDropdowns(prefix) {
-    const teamName = document.getElementById(`${prefix}NameSelect`).value;
-    for (let i = 1; i <= 3; i++) {
-        const el = document.getElementById(`${prefix}Name${i}`);
-        if (el) {
-            el.innerHTML = ROSTERS[teamName].map(p => `<option value="${p}">${p}</option>`).join('');
-        }
-    }
-    updateWinnerOptions();
-}
-
-function showScreen(id) {
-    ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'welcome-screen'].forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.style.display = (s === id) ? 'block' : 'none';
-    });
-    if (id === 'player-stats-screen') sortPlayerTable('g');
-    if (id === 'team-stats-screen') sortTeamTable('w');
-}
-
-/**
- * 3. ANALYTICS ENGINE
- */
-
-function calculatePlayerStats() {
-    const pMap = {};
-    matches.forEach(m => {
-        const all = [...m.teamPlayers, ...m.opponentPlayers];
-        all.forEach(p => {
-            if (!pMap[p.name]) {
-                pMap[p.name] = { name: p.name, g: 0, w: 0, totalMins: 0 };
-                STAT_FIELDS.forEach(sf => pMap[p.name][sf.id] = 0);
-            }
-            const s = pMap[p.name];
-            s.g++;
-            s.totalMins += (m.length || 1);
-            STAT_FIELDS.forEach(sf => s[sf.id] += (p[sf.id] || 0));
-            
-            const isHomePlayer = m.teamPlayers.some(tp => tp.name === p.name);
-            const playerTeam = isHomePlayer ? m.teamName : m.opponentName;
-            if (playerTeam === m.winner) s.w++;
-        });
-    });
-
-    return Object.values(pMap).map(s => {
-        const base = { 
-            name: s.name, 
-            g: s.g, 
-            winRate: (s.w / s.g) * 100, 
-            kda: (s.K + s.A) / Math.max(1, s.D) 
-        };
-        
-        if (CURRENT_MODE === 'total') {
-            STAT_FIELDS.forEach(sf => base[sf.id] = s[sf.id]);
-        } else {
-            // Level, GPM, and Wards are better as averages than per-minute
-            base.Lvl = s.Lvl / s.g; 
-            base.Gpm = s.Gpm / s.g; 
-            base.Wards = s.Wards / s.g;
-            // Everything else is calculated Per Minute
-            const pmKeys = ["K", "D", "A", "Pdmg", "Mdmg", "Jdmg", "Sdmg", "Take", "Miti", "SelfH", "AllyH"];
-            pmKeys.forEach(key => base[key] = s[key] / s.totalMins);
-        }
-        return base;
-    });
-}
-
-function sortPlayerTable(key) {
-    const data = calculatePlayerStats().sort((a, b) => {
-        if (typeof a[key] === 'string') return a[key].localeCompare(b[key]);
-        return b[key] - a[key];
-    });
-    
-    // Generate Headers
-    const headers = [
-        `<th onclick="sortPlayerTable('name')">Player</th>`,
-        `<th onclick="sortPlayerTable('g')">GP</th>`,
-        `<th onclick="sortPlayerTable('winRate')">Win%</th>`,
-        `<th onclick="sortPlayerTable('kda')">KDA</th>`
-    ];
-    
-    STAT_FIELDS.forEach(sf => {
-        const isPM = CURRENT_MODE === 'pm' && !['Lvl', 'Gpm', 'Wards'].includes(sf.id);
-        headers.push(`<th onclick="sortPlayerTable('${sf.id}')">${sf.label}${isPM ? '/M' : ''}</th>`);
-    });
-    document.getElementById('ranking-headers').innerHTML = headers.join('');
-
-    // Generate Body
-    document.getElementById('player-stats-content').innerHTML = data.map(s => `
-        <tr>
-            <td class="sticky-col"><strong>${s.name}</strong></td>
-            <td>${s.g}</td>
-            <td>${s.winRate.toFixed(0)}%</td>
-            <td>${s.kda.toFixed(2)}</td>
-            ${STAT_FIELDS.map(sf => {
-                const isPM = CURRENT_MODE === 'pm' && !['Lvl', 'Gpm', 'Wards'].includes(sf.id);
-                const val = s[sf.id];
-                return `<td>${isPM ? val.toFixed(2) : Math.round(val).toLocaleString()}</td>`;
-            }).join('')}
-        </tr>`).join('');
-}
-
-function toggleStatMode(mode) {
-    CURRENT_MODE = mode;
-    document.getElementById('btn-pm').className = mode === 'pm' ? 'active' : '';
-    document.getElementById('btn-total').className = mode === 'total' ? 'active' : '';
-    sortPlayerTable('g'); 
-}
 
 function sortTeamTable(key) {
     const tMap = {};
     matches.forEach(m => {
         [m.teamName, m.opponentName].forEach(team => {
             if (!tMap[team]) tMap[team] = { n: team, g: 0, w: 0, l: 0, gpm: 0 };
-            const s = tMap[team];
-            s.g++;
+            const s = tMap[team]; s.g++;
             if (team === m.winner) s.w++; else s.l++;
-            const players = (team === m.teamName) ? m.teamPlayers : m.opponentPlayers;
-            s.gpm += players.reduce((acc, curr) => acc + (curr.Gpm || 0), 0);
+            const pArr = (team === m.teamName) ? m.teamPlayers : m.opponentPlayers;
+            s.gpm += pArr.reduce((acc, curr) => acc + (parseInt(curr.Gpm) || 0), 0);
         });
     });
-    
+
     const data = Object.values(tMap).map(t => ({
-        ...t,
-        winRate: (t.w / t.g) * 100,
+        ...t, 
+        winRate: (t.w / t.g) * 100, 
         avgGpm: t.gpm / t.g
-    })).sort((a, b) => b[key] - a[key]);
+    })).sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : b[key] - a[key]));
 
     document.getElementById('team-stats-content').innerHTML = data.map(t => `
-        <tr>
-            <td><strong>${t.n}</strong></td>
+        <tr class="match-row" onclick="showTeamHistory('${t.n}')" style="cursor: pointer;">
+            <td style="color: #ffd700; font-weight: bold;">${t.n}</td>
             <td>${t.g}</td>
             <td>${t.w}</td>
             <td>${t.l}</td>
@@ -205,180 +63,256 @@ function sortTeamTable(key) {
         </tr>`).join('');
 }
 
-/**
- * 4. GITHUB SYNC & HISTORY
- */
+function showTeamHistory(teamName) {
+    // 1. Hide the main team standings table
+    document.querySelector('#team-stats-screen .table-wrap').style.display = 'none';
+    
+    const section = document.getElementById('team-history-section');
+    const content = document.getElementById('team-history-content');
+    
+    // 2. Filter and Sort
+    const filtered = matches.filter(m => m.teamName === teamName || m.opponentName === teamName);
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    document.getElementById('history-team-name').innerText = teamName + " - Match History";
+    
+    // 3. Render rows with click-to-modal functionality
+    content.innerHTML = filtered.map(m => {
+        const opp = m.teamName === teamName ? m.opponentName : m.teamName;
+        const res = m.winner === teamName ? 
+            '<span style="color:#4caf50; font-weight:bold;">WIN</span>' : 
+            '<span style="color:#f44336;">LOSS</span>';
+            
+        return `
+            <tr class="match-row" onclick="showModal(${m.id})" style="cursor: pointer;">
+                <td>${m.date}</td>
+                <td>vs ${opp}</td>
+                <td>${res}</td>
+                <td>${m.length}m</td>
+            </tr>`;
+    }).join('');
 
-async function loadDataFromGitHub() {
-    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("File not found");
-        const data = await res.json();
-        const content = decodeURIComponent(escape(atob(data.content)));
-        matches = JSON.parse(content);
-        document.getElementById('nav').style.display = 'flex';
-        showScreen('main-interface');
-        displayHistory();
-    } catch (e) {
-        console.error(e);
-        alert("Error loading data. Ensure GITHUB_CONFIG is set and data.json exists.");
-    }
+    // 4. Show the history section
+    section.style.display = 'block';
+    window.scrollTo(0, 0); 
 }
 
-async function saveMatch() {
-    if (!SESSION_TOKEN) {
-        SESSION_TOKEN = prompt("Please enter your GitHub Personal Access Token:");
-        if (!SESSION_TOKEN) return;
-    }
-
-    const mDate = document.getElementById('mDate').value;
-    const mLen = parseInt(document.getElementById('mLength').value);
-    if (!mDate || !mLen) return alert("Please fill in Date and Game Length.");
-
-    const getP = (pre) => [1,2,3].map(i => {
-        let pObj = { 
-            name: document.getElementById(`${pre}Name${i}`).value, 
-            god: document.getElementById(`${pre}God${i}`).value 
-        };
-        STAT_FIELDS.forEach(sf => pObj[sf.id] = parseInt(document.getElementById(`${pre}${sf.id}${i}`).value) || 0);
-        return pObj;
+/**
+ * Ensures that when you switch tabs, the team standings table 
+ * is visible again and the history is hidden.
+ */
+function showScreen(id) {
+    // 1. Hide all main screen containers
+    const screens = ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'god-stats-screen', 'welcome-screen'];
+    screens.forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = (s === id) ? 'block' : 'none';
     });
 
-    const newMatch = {
-        id: Date.now(),
-        date: mDate,
-        length: mLen,
-        teamName: document.getElementById('tNameSelect').value,
-        opponentName: document.getElementById('oNameSelect').value,
-        winner: document.getElementById('mWinner').value,
-        teamPlayers: getP('t'),
-        opponentPlayers: getP('o')
-    };
+    // 2. Specific logic for the Teams Tab
+    if (id === 'team-stats-screen') {
+        // Ensure the main standings table is visible
+        const mainTable = document.querySelector('#team-stats-screen .table-wrap');
+        if (mainTable) mainTable.style.display = 'block';
 
-    matches.push(newMatch);
-    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
-    
-    try {
-        const fileRes = await fetch(url);
-        const fileData = await fileRes.json();
-        
-        const body = {
-            message: `Match: ${newMatch.teamName} vs ${newMatch.opponentName}`,
-            content: btoa(unescape(encodeURIComponent(JSON.stringify(matches, null, 2)))),
-            sha: fileData.sha
-        };
+        // Ensure the drill-down history section is hidden
+        const historySection = document.getElementById('team-history-section');
+        if (historySection) historySection.style.display = 'none';
 
-        const putRes = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Authorization': `token ${SESSION_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-
-        if (putRes.ok) {
-            alert("Match Saved!");
-            showScreen('main-interface');
-            displayHistory();
-        } else {
-            const err = await putRes.json();
-            throw new Error(err.message);
-        }
-    } catch (e) {
-        matches.pop(); // Remove match if save failed
-        alert("Sync Failed: " + e.message);
+        // Re-render the data (in case it was cleared or needs updating)
+        sortTeamTable('w'); 
     }
+    
+    // 3. Logic for other tabs
+    if (id === 'player-stats-screen') sortPlayerTable('g');
+    if (id === 'god-stats-screen') sortGodTable('g');
+    if (id === 'main-interface') displayHistory();
 }
 
-function displayHistory() {
-    document.getElementById('database-content').innerHTML = matches.slice().reverse().map(m => `
-        <tr class="match-row" onclick="showModal(${m.id})">
-            <td>${m.date}</td>
-            <td>${m.length}m</td>
-            <td>${m.teamName} ${m.winner === m.teamName ? '🏆' : ''}</td>
-            <td>${m.opponentName} ${m.winner === m.opponentName ? '🏆' : ''}</td>
-            <td class="winner-tag">${m.winner} Won</td>
-        </tr>`).join('');
-}
+/**
+ * ==========================================
+ * 3. MATCH MODAL (THE STATS VIEW)
+ * ==========================================
+ */
 
 function showModal(id) {
     const m = matches.find(x => x.id === id);
     if (!m) return;
-
-    document.getElementById('mTitle').innerText = `${m.teamName} vs ${m.opponentName}`;
-    document.getElementById('mMeta').innerHTML = `
-        <span style="color:var(--gold)">${m.date}</span> | 
-        <span>${m.length} Minutes</span> | 
-        <span class="winner-tag">Winner: ${m.winner}</span>
-    `;
-
-    const renderPlayerTable = (players, teamTitle) => {
-        return `
-            <div style="margin-top: 20px;">
-                <h4 style="color:var(--gold); border-bottom: 1px solid #444; padding-bottom: 5px;">${teamTitle}</h4>
-                <div style="overflow-x: auto;">
-                    <table style="font-size: 0.7em; min-width: 1000px; background: #222;">
-                        <thead>
-                            <tr>
-                                <th>Player</th><th>God</th><th>Lvl</th><th>K/D/A</th><th>GPM</th>
-                                <th>P.Dmg</th><th>M.Dmg</th><th>J.Dmg</th><th>S.Dmg</th>
-                                <th>Taken</th><th>Miti</th><th>SelfH</th><th>AllyH</th><th>Wards</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${players.map(p => `
-                                <tr>
-                                    <td style="font-weight:bold; color:var(--gold)">${p.name}</td>
-                                    <td>${p.god}</td>
-                                    <td>${p.Lvl}</td>
-                                    <td>${p.K}/${p.D}/${p.A}</td>
-                                    <td>${p.Gpm}</td>
-                                    <td>${p.Pdmg.toLocaleString()}</td>
-                                    <td>${p.Mdmg.toLocaleString()}</td>
-                                    <td>${p.Jdmg.toLocaleString()}</td>
-                                    <td>${p.Sdmg.toLocaleString()}</td>
-                                    <td>${p.Take.toLocaleString()}</td>
-                                    <td>${p.Miti.toLocaleString()}</td>
-                                    <td>${p.SelfH.toLocaleString()}</td>
-                                    <td>${p.AllyH.toLocaleString()}</td>
-                                    <td>${p.Wards}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    };
-
-    document.getElementById('mDetails').innerHTML = `
-        ${renderPlayerTable(m.teamPlayers, m.teamName)}
-        ${renderPlayerTable(m.opponentPlayers, m.opponentName)}
-    `;
     
+    document.getElementById('mTitle').innerText = `${m.teamName} vs ${m.opponentName}`;
+    document.getElementById('mMeta').innerText = `${m.date} | ${m.length}m | Winner: ${m.winner}`;
+    
+    const renderModalTable = (players, title) => `
+        <h4 style="color:#ffd700; margin-top:20px;">${title}</h4>
+        <div style="overflow-x:auto;"><table>
+            <thead><tr><th>Player</th><th>God</th><th>Lvl</th><th>KDA</th><th>GPM</th>${STAT_FIELDS.slice(5).map(f => `<th>${f.label}</th>`).join('')}</tr></thead>
+            <tbody>${players.map(p => `<tr><td>${p.name}</td><td>${p.god}</td><td>${p.Lvl}</td><td>${p.K}/${p.D}/${p.A}</td><td>${p.Gpm}</td>${STAT_FIELDS.slice(5).map(f => `<td>${p[f.id].toLocaleString()}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table></div>`;
+
+    document.getElementById('mDetails').innerHTML = renderModalTable(m.teamPlayers, m.teamName) + renderModalTable(m.opponentPlayers, m.opponentName);
     document.getElementById('detail-modal').style.display = 'block';
 }
 
 /**
- * 5. INITIALIZATION
- * Runs last to ensure everything else is defined.
+ * ==========================================
+ * 4. PLAYER & GOD ANALYTICS
+ * ==========================================
  */
 
-function setupUI() {
-    const teamNames = Object.keys(ROSTERS).sort();
-    const teamOpts = teamNames.map(t => `<option value="${t}">${t}</option>`).join('');
-    
-    document.getElementById('tNameSelect').innerHTML = teamOpts;
-    document.getElementById('oNameSelect').innerHTML = teamOpts;
-    document.getElementById('mDate').valueAsDate = new Date();
+function getAggregatedData(type, mode) {
+    const map = {};
+    matches.forEach(m => {
+        const all = [...m.teamPlayers.map(p => ({...p, team: m.teamName})), ...m.opponentPlayers.map(p => ({...p, team: m.opponentName}))];
+        all.forEach(p => {
+            const key = type === 'player' ? p.name : p.god;
+            if (!map[key]) {
+                map[key] = { id: key, g: 0, w: 0, mins: 0 };
+                STAT_FIELDS.forEach(sf => map[key][sf.id] = 0);
+            }
+            const s = map[key]; s.g++; s.mins += (parseInt(m.length) || 1);
+            STAT_FIELDS.forEach(sf => s[sf.id] += (parseInt(p[sf.id]) || 0));
+            if (p.team === m.winner) s.w++;
+        });
+    });
 
-    // Call helpers defined above
+    return Object.values(map).map(s => {
+        const res = { id: s.id, g: s.g, wr: (s.w / s.g) * 100, kda: (s.K + s.A) / Math.max(1, s.D) };
+        STAT_FIELDS.forEach(sf => {
+            if (mode === 'total') res[sf.id] = s[sf.id];
+            else if (mode === 'pg') res[sf.id] = s[sf.id] / s.g;
+            else {
+                if (['Lvl', 'Gpm', 'Wards'].includes(sf.id)) res[sf.id] = s[sf.id] / s.g;
+                else res[sf.id] = s[sf.id] / s.mins;
+            }
+        });
+        return res;
+    });
+}
+
+function renderTable(type, bodyId, headId, mode, sortKey) {
+    const data = getAggregatedData(type, mode).sort((a,b) => (typeof a[sortKey] === 'string' ? a[sortKey].localeCompare(b[sortKey]) : b[sortKey] - a[sortKey]));
+    const sortFn = type === 'player' ? 'sortPlayerTable' : 'sortGodTable';
+    
+    const heads = [`<th onclick="${sortFn}('id')">${type === 'player' ? 'Player' : 'God'}</th>`, `<th onclick="${sortFn}('g')">GP</th>`, `<th onclick="${sortFn}('wr')">WR%</th>`, `<th onclick="${sortFn}('kda')">KDA</th>`];
+    STAT_FIELDS.forEach(sf => {
+        let suffix = (mode === 'pm' && !['Lvl', 'Gpm', 'Wards'].includes(sf.id)) ? '/M' : (mode === 'pg' ? '/G' : '');
+        heads.push(`<th onclick="${sortFn}('${sf.id}')">${sf.label}${suffix}</th>`);
+    });
+    document.getElementById(headId).innerHTML = heads.join('');
+
+    document.getElementById(bodyId).innerHTML = data.map(s => `
+        <tr>
+            <td class="sticky-col"><strong>${s.id}</strong></td>
+            <td>${s.g}</td><td>${s.wr.toFixed(0)}%</td><td>${s.kda.toFixed(2)}</td>
+            ${STAT_FIELDS.map(sf => `<td>${mode === 'total' ? Math.round(s[sf.id]).toLocaleString() : s[sf.id].toFixed(2)}</td>`).join('')}
+        </tr>`).join('');
+}
+
+function sortPlayerTable(key) { renderTable('player', 'player-stats-content', 'ranking-headers', PLAYER_MODE, key); }
+function sortGodTable(key) { renderTable('god', 'god-stats-content', 'god-ranking-headers', GOD_MODE, key); }
+
+/**
+ * ==========================================
+ * 5. NAVIGATION & UI HELPERS
+ * ==========================================
+ */
+
+function showScreen(id) {
+    ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'god-stats-screen', 'welcome-screen'].forEach(s => {
+        document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+    });
+    if (id === 'player-stats-screen') sortPlayerTable('g');
+    if (id === 'god-stats-screen') sortGodTable('g');
+    if (id === 'team-stats-screen') { sortTeamTable('w'); document.getElementById('team-history-section').style.display = 'none'; }
+    if (id === 'main-interface') displayHistory();
+}
+
+function displayHistory() {
+    document.getElementById('database-content').innerHTML = matches.slice().reverse().map(m => `
+        <tr class="match-row" onclick="showModal(${m.id})" style="cursor: pointer;">
+            <td>${m.date}</td><td>${m.length}m</td><td>${m.teamName}</td><td>${m.opponentName}</td><td style="color:#4caf50; font-weight:bold;">${m.winner}</td>
+        </tr>`).join('');
+}
+
+function createInputSkeletons(id, pre) {
+    document.getElementById(id).innerHTML = [1, 2, 3].map(i => `
+        <div class="player-card" style="background: #252525; padding: 15px; margin-top: 15px; border-radius: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <select id="${pre}Name${i}"></select>
+                <select id="${pre}God${i}">${GODS.map(g => `<option>${g}</option>`).join('')}</select>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;">
+                ${STAT_FIELDS.map(f => `<div><label style="font-size: 0.7em; color: #ffd700;">${f.label}</label><input type="number" id="${pre}${f.id}${i}" value="0" style="width: 100%;"></div>`).join('')}
+            </div>
+        </div>`).join('');
+}
+
+function updatePlayerDropdowns(pre) {
+    const t = document.getElementById(pre === 't' ? 'tNameSelect' : 'oNameSelect').value;
+    [1, 2, 3].forEach(i => { document.getElementById(`${pre}Name${i}`).innerHTML = ROSTERS[t].map(p => `<option>${p}</option>`).join(''); });
+    const t1 = document.getElementById('tNameSelect').value;
+    const t2 = document.getElementById('oNameSelect').value;
+    document.getElementById('mWinner').innerHTML = `<option>${t1}</option><option>${t2}</option>`;
+}
+
+function setupUI() {
+    const opts = Object.keys(ROSTERS).sort().map(t => `<option value="${t}">${t}</option>`).join('');
+    document.getElementById('tNameSelect').innerHTML = opts;
+    document.getElementById('oNameSelect').innerHTML = opts;
     createInputSkeletons('teamInputs', 't');
     createInputSkeletons('oppInputs', 'o');
     updatePlayerDropdowns('t');
     updatePlayerDropdowns('o');
 }
 
-async function initApp() {
-    setupUI();
-    await loadDataFromGitHub();
+/**
+ * ==========================================
+ * 6. DATA SYNC
+ * ==========================================
+ */
+
+async function initApp() { setupUI(); await loadDataFromGitHub(); }
+
+async function loadDataFromGitHub() {
+    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        matches = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+        document.getElementById('nav').style.display = 'flex';
+        showScreen('main-interface');
+    } catch (e) { alert("Load failed."); }
 }
+
+async function saveMatch() {
+    if (!SESSION_TOKEN) SESSION_TOKEN = prompt("GitHub Token:");
+    const mData = {
+        id: Date.now(),
+        date: document.getElementById('mDate').value,
+        length: document.getElementById('mLength').value,
+        teamName: document.getElementById('tNameSelect').value,
+        opponentName: document.getElementById('oNameSelect').value,
+        winner: document.getElementById('mWinner').value
+    };
+    const getP = (pre) => [1, 2, 3].map(i => {
+        let p = { name: document.getElementById(`${pre}Name${i}`).value, god: document.getElementById(`${pre}God${i}`).value };
+        STAT_FIELDS.forEach(f => p[f.id] = parseInt(document.getElementById(`${pre}${f.id}${i}`).value) || 0);
+        return p;
+    });
+    mData.teamPlayers = getP('t');
+    mData.opponentPlayers = getP('o');
+    matches.push(mData);
+
+    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+    const fRes = await fetch(url);
+    const fData = await fRes.json();
+    const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Authorization': `token ${SESSION_TOKEN}` },
+        body: JSON.stringify({ message: "Log Match", content: btoa(unescape(encodeURIComponent(JSON.stringify(matches, null, 2)))), sha: fData.sha })
+    });
+    if (res.ok) { alert("Saved!"); showScreen('main-interface'); } else { alert("Save failed."); }
+}
+
+function togglePlayerMode(m) { PLAYER_MODE = m; sortPlayerTable('g'); }
+function toggleGodMode(m) { GOD_MODE = m; sortGodTable('g'); }
