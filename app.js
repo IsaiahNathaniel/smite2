@@ -1,5 +1,5 @@
 /**
- * GITHUB CONFIGURATION
+ * GITHUB CONFIGURATION AND ARRAYS FOR GODS, PLAYERS, AND STATS
  */
 const GITHUB_CONFIG = {
     owner: "IsaiahNathaniel",
@@ -9,10 +9,10 @@ const GITHUB_CONFIG = {
 
 const GODS = ["Achilles", "Agni", "Aladdin", "Amaterasu", "Anhur", "Anubis", "Aphrodite", "Apollo", "Ares", "Artemis", "Artio", "Athena", "Atlas", "Awilix", "Bacchus", "Baron Samedi", "Bellona", "Cabrakan", "Cerberus", "Cernunnos", "Chaac", "Charon", "Chrion", "Cupid", "Da Ji", "Danzaburou", "Discordia", "Eset", "Fenrir", "Ganesha", "Geb", "Gilgamesh", "Guan Yu", "Hades", "Hecate", "Hercules", "Hou Yi", "Hua Mulan", "Hun Batz", "Ishtar", "Izanami", "Janus", "Jing Wei", "Jormungandr", "Kali", "Khepri", "Kukulkan", "Loki", "Medusa", "Mercury", "Merlin", "Mordred", "Morgan Le Fay", "Ne Zha", "Neith", "Nemesis", "Nu Wa", "Nut", "Odin", "Osiris", "Pele", "Poseidon", "Princess Bari", "Ra", "Rama", "Rataroskr", "Scylla", "Sobek", "Sol", "Sun Wukong", "Susano", "Sylvanus", "Thanatos", "The Morrigan", "Thor", "Tsukuyomi", "Ullr", "Vulcan", "Xbalanque", "Yemoja", "Ymir", "Zeus"];
 const ROSTERS = {
-    "Dag's Team": ["Dag", "Bribri", "WhananaMan"],
-    "JD's Team": ["JD", "Bumzo", "Kirinzaku"],
-    "Tate's Team": ["Tate", "DedOne", "Ciecello"],
-    "Dennis' Team": ["Dennis", "HoboLord", "Shapow"],
+    "Viridian Vincere": ["Dag", "Bribri", "WhananaMan"],
+    "Home Depot Repo": ["Wikipii", "Bumzo", "Kirinzaku"],
+    "Dummy Luck": ["TheSnoodPenguin", "DedOne", "Ciecello"],
+    "The Team": ["Uvahash", "HoboLord", "Shapow"],
 };
 
 const STAT_FIELDS = [
@@ -24,8 +24,8 @@ const STAT_FIELDS = [
 ];
 
 let matches = [];
-let SESSION_TOKEN = null;
-let PLAYER_MODE = 'pm'; 
+let SESSION_TOKEN = null; //stays null until assigned during data input
+let PLAYER_MODE = 'pm';  //these two are for display of per minute, per game, and totals in the team display tabs - they change when making selections
 let GOD_MODE = 'pm';    
 
 /**
@@ -36,30 +36,32 @@ let GOD_MODE = 'pm';
 
 function sortTeamTable(key) {
     const tMap = {};
-    matches.forEach(m => {
+    matches.forEach(m => { //pulls from matches array and adds the stats from that data to local variables for display and data sorting purposes, loops through each game
         [m.teamName, m.opponentName].forEach(team => {
-            if (!tMap[team]) tMap[team] = { n: team, g: 0, w: 0, l: 0, gpm: 0 };
-            const s = tMap[team]; s.g++;
-            if (team === m.winner) s.w++; else s.l++;
-            const pArr = (team === m.teamName) ? m.teamPlayers : m.opponentPlayers;
-            s.gpm += pArr.reduce((acc, curr) => acc + (parseInt(curr.Gpm) || 0), 0);
+            if (!tMap[team]) tMap[team] = { n: team, g: 0, w: 0, l: 0, gpm: 0 }; //if team doesn't already exist, create them
+            const s = tMap[team]; s.g++; //adds 1 game played for each team
+            if (team === m.winner) s.w++; else s.l++; //adds wins or losses
+            //code below is calculating gpm - we aren't gonna use it
+            //const pArr = (team === m.teamName) ? m.teamPlayers : m.opponentPlayers;
+            //s.gpm += pArr.reduce((acc, curr) => acc + (parseInt(curr.Gpm) || 0), 0);
         });
     });
 
-    const data = Object.values(tMap).map(t => ({
+    const data = Object.values(tMap).map(t => ({ //turns the data organized into individual teams back into a simple array for sorting, then creates a new list to calculate winRate and GPM
         ...t, 
         winRate: (t.w / t.g) * 100, 
         avgGpm: t.gpm / t.g
-    })).sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : b[key] - a[key]));
+    })).sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : b[key] - a[key])); //sort ranking logic for team tables
 
+    //below is for displaying the stats on screen, uses the data array created above
     document.getElementById('team-stats-content').innerHTML = data.map(t => `
         <tr class="match-row" onclick="showTeamHistory('${t.n}')" style="cursor: pointer;">
             <td style="color: #ffd700; font-weight: bold;">${t.n}</td>
-            <td>${t.g}</td>
+            <td>${t.g}</td> 
             <td>${t.w}</td>
             <td>${t.l}</td>
             <td>${t.winRate.toFixed(1)}%</td>
-            <td>${Math.round(t.avgGpm).toLocaleString()}</td>
+            <!-- <td>${Math.round(t.avgGpm).toLocaleString()}</td> GPM SECTION REMOVED //-->
         </tr>`).join('');
 }
 
@@ -97,37 +99,7 @@ function showTeamHistory(teamName) {
     window.scrollTo(0, 0); 
 }
 
-/**
- * Ensures that when you switch tabs, the team standings table 
- * is visible again and the history is hidden.
- */
-function showScreen(id) {
-    // 1. Hide all main screen containers
-    const screens = ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'god-stats-screen', 'welcome-screen'];
-    screens.forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.style.display = (s === id) ? 'block' : 'none';
-    });
 
-    // 2. Specific logic for the Teams Tab
-    if (id === 'team-stats-screen') {
-        // Ensure the main standings table is visible
-        const mainTable = document.querySelector('#team-stats-screen .table-wrap');
-        if (mainTable) mainTable.style.display = 'block';
-
-        // Ensure the drill-down history section is hidden
-        const historySection = document.getElementById('team-history-section');
-        if (historySection) historySection.style.display = 'none';
-
-        // Re-render the data (in case it was cleared or needs updating)
-        sortTeamTable('w'); 
-    }
-    
-    // 3. Logic for other tabs
-    if (id === 'player-stats-screen') sortPlayerTable('g');
-    if (id === 'god-stats-screen') sortGodTable('g');
-    if (id === 'main-interface') displayHistory();
-}
 
 /**
  * ==========================================
@@ -217,15 +189,38 @@ function sortGodTable(key) { renderTable('god', 'god-stats-content', 'god-rankin
  * ==========================================
  */
 
+/**
+ * Ensures that when you switch tabs, the team standings table 
+ * is visible again and the history is hidden.
+ */
 function showScreen(id) {
-    ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'god-stats-screen', 'welcome-screen'].forEach(s => {
-        document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+    // 1. Hide all main screen containers
+    const screens = ['main-interface', 'add-screen', 'player-stats-screen', 'team-stats-screen', 'god-stats-screen', 'welcome-screen'];
+    screens.forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = (s === id) ? 'block' : 'none';
     });
+
+    // 2. Specific logic for the Teams Tab
+    if (id === 'team-stats-screen') {
+        // Ensure the main standings table is visible
+        const mainTable = document.querySelector('#team-stats-screen .table-wrap');
+        if (mainTable) mainTable.style.display = 'block';
+
+        // Ensure the drill-down history section is hidden
+        const historySection = document.getElementById('team-history-section');
+        if (historySection) historySection.style.display = 'none';
+
+        // Re-render the data (in case it was cleared or needs updating)
+        sortTeamTable('w'); 
+    }
+    
+    // 3. Logic for other tabs
     if (id === 'player-stats-screen') sortPlayerTable('g');
     if (id === 'god-stats-screen') sortGodTable('g');
-    if (id === 'team-stats-screen') { sortTeamTable('w'); document.getElementById('team-history-section').style.display = 'none'; }
     if (id === 'main-interface') displayHistory();
 }
+
 
 function displayHistory() {
     document.getElementById('database-content').innerHTML = matches.slice().reverse().map(m => `

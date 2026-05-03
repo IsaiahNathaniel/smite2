@@ -1,4 +1,4 @@
 # smite2
 Smite 2 Joust Superliiga Database
 
-README
+Created and maintained by Dag - reach out on Discord with any errors or issues.
